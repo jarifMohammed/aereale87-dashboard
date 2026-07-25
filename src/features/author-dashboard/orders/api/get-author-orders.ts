@@ -1,24 +1,51 @@
-import type { AuthorOrderStatus, AuthorOrdersData } from "../types";
+import type {
+  AuthorOrdersData,
+  AuthorOrderRecord,
+  OrderFulfillmentStatus,
+} from "../types";
 
-type ApiEnvelope<T> = {
-  data: T;
+type BackendOrderItem = {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  coverImageUrl: string | null;
+  formatId: string;
+  formatType: string;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+};
+
+type BackendAuthorOrder = {
+  id: string;
+  stripeSessionId: string;
+  status: OrderFulfillmentStatus;
+  currency: string;
+  totalAmount: number;
+  authorTotalAmount: number;
+  createdAt: string;
+  buyer: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  items: BackendOrderItem[];
+  payout: {
+    id: string;
+    amount: number;
+    platformFee: number;
+    status: string;
+    canRequestPayout: boolean;
+  } | null;
 };
 
 type StatisticsResponse = {
-  totalSales: number;
-  totalRevenue: number;
-};
-
-type AuthorPayout = {
-  id: string;
-  amount: number;
-  status: string;
-  order: {
-    id: string;
-    status: string;
-    createdAt: string;
-    totalAmount: number;
+  data?: {
+    totalSales: number;
+    totalRevenue: number;
   };
+  totalSales?: number;
+  totalRevenue?: number;
 };
 
 function formatCurrency(value: number) {
@@ -29,48 +56,90 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function formatPayoutStatus(status: string): AuthorOrderStatus {
-  switch (status) {
-    case "PENDING_REQUEST":
-      return "Pending request";
-    case "REQUESTED":
-      return "Requested";
-    case "APPROVED":
-      return "Approved";
-    case "PAID":
-      return "Paid";
-    case "REJECTED":
-      return "Rejected";
-    default:
-      return "Pending request";
-  }
-}
-
 export async function getAuthorOrders(
   accessToken: string,
 ): Promise<AuthorOrdersData> {
-  const [statisticsResponse, payoutsResponse] = await Promise.all([
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/statistics/author`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    }),
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/payouts/author`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    }),
-  ]);
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  if (!statisticsResponse.ok || !payoutsResponse.ok) {
-    throw new Error("Failed to load author order data.");
+  let rawOrders: BackendAuthorOrder[] = [];
+  let statistics = { totalSales: 0, totalRevenue: 0 };
+
+  try {
+    const ordersRes = await fetch(`${baseUrl}/orders/author`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+
+    if (ordersRes.ok) {
+      const payload = await ordersRes.json();
+      if (Array.isArray(payload)) {
+        rawOrders = payload;
+      } else if (payload && Array.isArray(payload.data)) {
+        rawOrders = payload.data;
+      }
+      statistics.totalSales = rawOrders.length;
+    } else {
+      console.error("Failed to fetch author orders. Status:", ordersRes.status);
+    }
+  } catch (error) {
+    console.error("Error fetching author orders:", error);
   }
 
-  const statisticsPayload =
-    (await statisticsResponse.json()) as ApiEnvelope<StatisticsResponse>;
-  const payoutsPayload =
-    (await payoutsResponse.json()) as ApiEnvelope<AuthorPayout[]>;
+  try {
+    const statsRes = await fetch(`${baseUrl}/statistics/author`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
 
-  const statistics = statisticsPayload.data;
-  const payouts = payoutsPayload.data;
+    if (statsRes.ok) {
+      const statsPayload = await statsRes.json();
+      const statsData = statsPayload?.data || statsPayload;
+      if (statsData) {
+        statistics.totalSales = statsData.totalSales ?? rawOrders.length;
+        statistics.totalRevenue = statsData.totalRevenue ?? 0;
+      }
+    } else {
+      statistics.totalRevenue = rawOrders.reduce(
+        (acc, o) => acc + (o.payout?.amount || o.authorTotalAmount || 0),
+        0,
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching author statistics:", error);
+    statistics.totalRevenue = rawOrders.reduce(
+      (acc, o) => acc + (o.payout?.amount || o.authorTotalAmount || 0),
+      0,
+    );
+  }
+
+  const records: AuthorOrderRecord[] = rawOrders.map((order) => {
+    const productsSummary =
+      order.items
+        ?.map((i) => `${i.bookTitle} (${i.formatType} x${i.quantity})`)
+        .join(", ") || "Order Items";
+
+    const formattedDate = new Date(order.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return {
+      id: order.id,
+      payoutId: order.payout?.id || null,
+      orderId: order.id.slice(0, 8).toUpperCase(),
+      customerName: order.buyer?.name || "Customer",
+      customerEmail: order.buyer?.email || "N/A",
+      items: order.items || [],
+      productsSummary,
+      amount: formatCurrency(order.payout?.amount || order.authorTotalAmount || 0),
+      rawAmount: order.payout?.amount || order.authorTotalAmount || 0,
+      date: formattedDate,
+      orderStatus: order.status || "COMPLETED",
+      payoutStatus: order.payout?.status || "NO_PAYOUT",
+      canRequestPayout: order.payout?.status === "PENDING_REQUEST",
+    };
+  });
 
   return {
     summary: [
@@ -81,41 +150,34 @@ export async function getAuthorOrders(
       },
       {
         id: "completed-orders",
-        label: "Payout Records",
-        value: String(payouts.length),
+        label: "Orders Delivered/Completed",
+        value: String(
+          records.filter((r) =>
+            ["COMPLETED", "DELIVERED"].includes(r.orderStatus),
+          ).length,
+        ),
       },
       {
         id: "revenue-generated",
-        label: "Revenue Generated",
+        label: "Author Revenue",
         value: formatCurrency(statistics.totalRevenue),
       },
     ],
     tabs: [
-      { id: "all", label: `All Orders (${payouts.length})`, active: true },
+      { id: "all", label: `All Orders (${records.length})`, active: true },
       {
-        id: "requested",
-        label: `Requested (${payouts.filter((item) => item.status === "REQUESTED").length})`,
+        id: "processing",
+        label: `Processing (${records.filter((r) => r.orderStatus === "PROCESSING" || r.orderStatus === "PENDING").length})`,
       },
       {
-        id: "paid",
-        label: `Paid (${payouts.filter((item) => item.status === "PAID").length})`,
+        id: "shipped",
+        label: `Shipped (${records.filter((r) => r.orderStatus === "SHIPPED").length})`,
+      },
+      {
+        id: "delivered",
+        label: `Delivered/Completed (${records.filter((r) => r.orderStatus === "DELIVERED" || r.orderStatus === "COMPLETED").length})`,
       },
     ],
-    orders: payouts.map((payout) => ({
-      id: payout.id,
-      payoutId: payout.id,
-      orderId: payout.order.id,
-      customer: "Customer details pending backend order detail API",
-      products: payout.order.status,
-      amount: formatCurrency(payout.amount),
-      date: new Date(payout.order.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      status: formatPayoutStatus(payout.status),
-      payoutStatus: payout.status,
-      canRequestPayout: payout.status === "PENDING_REQUEST",
-    })),
+    orders: records,
   };
 }

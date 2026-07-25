@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 import type { DashboardNavItem } from "./dashboard-shell";
 import { SidebarItem } from "./sidebar-item";
+import { LogoutModal } from "./logout-modal";
 
 type MobileSidebarProps = {
   items: DashboardNavItem[];
@@ -17,6 +18,7 @@ type MobileSidebarProps = {
 
 export function MobileSidebar({ items, sectionLabel }: MobileSidebarProps) {
   const [open, setOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   return (
     <>
@@ -37,34 +39,55 @@ export function MobileSidebar({ items, sectionLabel }: MobileSidebarProps) {
       >
         <div
           className={cn(
-            "absolute inset-y-0 left-0 flex w-72 flex-col bg-[#66756d] text-slate-100 transition-transform",
+            "absolute inset-y-0 left-0 flex w-72 flex-col justify-between bg-[#66756d] pb-6 text-slate-100 transition-transform",
             open ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          <div className="flex items-start justify-between px-5 py-5">
-            <Logo inverted />
-            <Button
-              onClick={() => setOpen(false)}
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/10 hover:text-white"
-              aria-label="Close navigation menu"
-            >
-              <X />
-            </Button>
+          <div>
+            <div className="flex items-start justify-between px-5 py-5">
+              <Logo inverted />
+              <Button
+                onClick={() => setOpen(false)}
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10 hover:text-white"
+                aria-label="Close navigation menu"
+              >
+                <X />
+              </Button>
+            </div>
+            <p className="sr-only">{sectionLabel}</p>
+            <nav className="flex flex-col gap-6 px-4 py-6">
+              {items.map((item) => (
+                <SidebarItem
+                  key={item.href}
+                  item={item}
+                  onNavigate={() => setOpen(false)}
+                />
+              ))}
+            </nav>
           </div>
-          <p className="sr-only">{sectionLabel}</p>
-          <nav className="flex flex-1 flex-col gap-6 px-4 py-6">
-            {items.map((item) => (
-              <SidebarItem
-                key={item.href}
-                item={item}
-                onNavigate={() => setOpen(false)}
-              />
-            ))}
-          </nav>
+
+          <div className="px-4">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setShowLogoutModal(true);
+              }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-md border border-[#ef4444] px-2 py-1.5 text-base font-medium text-[#ef4444] transition-colors hover:bg-white/5"
+            >
+              <LogOut className="size-5" />
+              <span>Log out</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+      />
     </>
   );
 }

@@ -10,10 +10,9 @@ const adminNavItems: DashboardNavItem[] = [
     icon: "layout-dashboard",
   },
   {
-    title: "Moderation",
-    href: "/admin-dashboard/moderation",
-    icon: "shield",
-    disabled: true,
+    title: "Orders",
+    href: "/admin-dashboard/orders",
+    icon: "shopping-cart",
   },
   {
     title: "Book Approvals",
@@ -34,12 +33,6 @@ const adminNavItems: DashboardNavItem[] = [
     title: "Subscribers",
     href: "/admin-dashboard/subscribers",
     icon: "mail",
-  },
-  {
-    title: "Reports",
-    href: "/admin-dashboard/reports",
-    icon: "bar-chart-3",
-    disabled: true,
   },
 ];
 

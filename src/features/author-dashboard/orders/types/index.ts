@@ -1,3 +1,13 @@
+export type OrderFulfillmentStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "FAILED"
+  | "REFUNDED"
+  | "CANCELLED";
+
 export type AuthorOrderStatus =
   | "Pending request"
   | "Requested"
@@ -17,15 +27,30 @@ export type AuthorOrderSummary = {
   value: string;
 };
 
+export type AuthorOrderItem = {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  coverImageUrl: string | null;
+  formatId: string;
+  formatType: string;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+};
+
 export type AuthorOrderRecord = {
   id: string;
-  payoutId: string;
+  payoutId: string | null;
   orderId: string;
-  customer: string;
-  products: string;
+  customerName: string;
+  customerEmail: string;
+  items: AuthorOrderItem[];
+  productsSummary: string;
   amount: string;
+  rawAmount: number;
   date: string;
-  status: AuthorOrderStatus;
+  orderStatus: OrderFulfillmentStatus;
   payoutStatus: string;
   canRequestPayout: boolean;
 };
