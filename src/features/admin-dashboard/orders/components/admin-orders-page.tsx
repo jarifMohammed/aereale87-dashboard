@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Search, SlidersHorizontal, Package, CheckCircle2, Truck, Clock, AlertCircle } from "lucide-react";
+import { Search, Package } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type {
-  AuthorOrdersData,
-  AuthorOrderRecord,
-  AuthorOrderSummary,
+  AdminOrdersData,
+  AdminOrdersSummary,
   OrderFulfillmentStatus,
 } from "../types";
 
-type AuthorOrdersPageProps = {
-  data: AuthorOrdersData;
+type AdminOrdersPageProps = {
+  data: AdminOrdersData;
   accessToken: string;
 };
 
@@ -55,65 +54,25 @@ function FulfillmentStatusBadge({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
-      <select
-        value={status}
-        disabled={isUpdating}
-        onChange={(e) => onChangeStatus(e.target.value as OrderFulfillmentStatus)}
-        className={cn(
-          "cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider outline-none transition-colors disabled:opacity-50",
-          getBadgeStyle(status)
-        )}
-      >
-        {ORDER_STATUS_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-white text-neutral-800">
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function PayoutStatusBadge({ status }: { status: string }) {
-  let style = "border-amber-200 bg-amber-50 text-amber-700";
-  let label = status;
-
-  switch (status) {
-    case "PAID":
-      style = "border-emerald-200 bg-emerald-50 text-emerald-700";
-      label = "Paid";
-      break;
-    case "APPROVED":
-    case "REQUESTED":
-      style = "border-sky-200 bg-sky-50 text-sky-700";
-      label = status === "APPROVED" ? "Approved" : "Requested";
-      break;
-    case "PENDING_REQUEST":
-      style = "border-amber-200 bg-amber-50 text-amber-700";
-      label = "Ready to Request";
-      break;
-    case "REJECTED":
-      style = "border-red-200 bg-red-50 text-red-700";
-      label = "Rejected";
-      break;
-    default:
-      label = status;
-  }
-
-  return (
-    <span
+    <select
+      value={status}
+      disabled={isUpdating}
+      onChange={(e) => onChangeStatus(e.target.value as OrderFulfillmentStatus)}
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        style
+        "cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider outline-none transition-colors disabled:opacity-50",
+        getBadgeStyle(status)
       )}
     >
-      {label}
-    </span>
+      {ORDER_STATUS_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value} className="bg-white text-neutral-800">
+          {opt.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
-function SummaryCard({ item }: { item: AuthorOrderSummary }) {
+function SummaryCard({ item }: { item: AdminOrdersSummary }) {
   return (
     <div className="flex-1 border border-stone-300 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-2">
@@ -124,33 +83,11 @@ function SummaryCard({ item }: { item: AuthorOrderSummary }) {
   );
 }
 
-export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
+export function AdminOrdersPage({ data, accessToken }: AdminOrdersPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-
-  const requestPayoutMutation = useMutation({
-    mutationFn: async (payoutId: string) => {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/payouts/author/${payoutId}/request`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.message || "Unable to request payout.");
-      }
-      return payload;
-    },
-    onSuccess: () => {
-      toast.success("Payout request submitted successfully!");
-      router.refresh();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({
@@ -189,18 +126,17 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
     },
   });
 
-  // Filter orders by active tab and search query
   const filteredOrders = data.orders.filter((order) => {
     // Tab filter
-    if (activeTab === "processing" && !["PROCESSING", "PENDING"].includes(order.orderStatus)) {
+    if (activeTab === "processing" && !["PROCESSING", "PENDING"].includes(order.status)) {
       return false;
     }
-    if (activeTab === "shipped" && order.orderStatus !== "SHIPPED") {
+    if (activeTab === "shipped" && order.status !== "SHIPPED") {
       return false;
     }
     if (
       activeTab === "delivered" &&
-      !["DELIVERED", "COMPLETED"].includes(order.orderStatus)
+      !["DELIVERED", "COMPLETED"].includes(order.status)
     ) {
       return false;
     }
@@ -210,17 +146,43 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
       const q = searchQuery.toLowerCase();
       const matchId = order.orderId.toLowerCase().includes(q) || order.id.toLowerCase().includes(q);
       const matchCustomer =
-        order.customerName.toLowerCase().includes(q) ||
-        order.customerEmail.toLowerCase().includes(q);
+        order.buyer.name.toLowerCase().includes(q) ||
+        order.buyer.email.toLowerCase().includes(q);
+      const matchAuthors = order.authors.some(
+        (a) => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
+      );
       const matchProducts = order.productsSummary.toLowerCase().includes(q);
-      return matchId || matchCustomer || matchProducts;
+      return matchId || matchCustomer || matchAuthors || matchProducts;
     }
 
     return true;
   });
 
+  const tabs = [
+    { id: "all", label: `All Orders (${data.orders.length})` },
+    {
+      id: "processing",
+      label: `Processing (${data.orders.filter((r) => r.status === "PROCESSING" || r.status === "PENDING").length})`,
+    },
+    {
+      id: "shipped",
+      label: `Shipped (${data.orders.filter((r) => r.status === "SHIPPED").length})`,
+    },
+    {
+      id: "delivered",
+      label: `Delivered/Completed (${data.orders.filter((r) => r.status === "DELIVERED" || r.status === "COMPLETED").length})`,
+    },
+  ];
+
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold text-neutral-800">All Author Orders</h1>
+        <p className="text-sm text-neutral-500">
+          Monitor and manage orders across all platform authors and customers.
+        </p>
+      </div>
+
       <section className="flex flex-col gap-5 xl:flex-row">
         {data.summary.map((item) => (
           <SummaryCard key={item.id} item={item} />
@@ -232,7 +194,7 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
           <div className="flex flex-col gap-4 border-b border-stone-200 pb-4 xl:flex-row xl:items-center xl:justify-between">
             {/* Filter Tabs */}
             <div className="flex min-h-9 flex-1 flex-wrap items-center gap-2">
-              {data.tabs.map((tab) => {
+              {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -257,10 +219,10 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
               <div className="relative inline-flex items-center">
                 <input
                   type="text"
-                  placeholder="Search by ID, customer, book..."
+                  placeholder="Search order ID, customer, author, book..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-72 border border-stone-300 bg-stone-50 py-2 pl-9 pr-4 text-sm text-neutral-800 outline-none transition-colors focus:border-stone-500 focus:bg-white"
+                  className="w-80 border border-stone-300 bg-stone-50 py-2 pl-9 pr-4 text-sm text-neutral-800 outline-none transition-colors focus:border-stone-500 focus:bg-white"
                 />
                 <Search className="absolute left-3 top-2.5 size-4 text-neutral-400" strokeWidth={1.8} />
               </div>
@@ -273,13 +235,12 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
               <div className="min-w-[1100px]">
                 <div className="inline-flex w-full items-center border-b bg-lime-50 font-semibold text-neutral-800">
                   <div className="w-28 px-4 py-3 text-xs uppercase">ORDER ID</div>
-                  <div className="w-56 px-4 py-3 text-xs uppercase">CUSTOMER</div>
+                  <div className="w-48 px-4 py-3 text-xs uppercase">CUSTOMER</div>
+                  <div className="w-48 px-4 py-3 text-xs uppercase">AUTHOR(S)</div>
                   <div className="flex-1 px-4 py-3 text-xs uppercase">BOOKS & FORMATS</div>
-                  <div className="w-32 px-4 py-3 text-xs uppercase text-right">EARNINGS</div>
+                  <div className="w-32 px-4 py-3 text-xs uppercase text-right">AMOUNT</div>
                   <div className="w-32 px-4 py-3 text-xs uppercase text-center">DATE</div>
-                  <div className="w-40 px-4 py-3 text-xs uppercase text-center">FULFILLMENT</div>
-                  <div className="w-36 px-4 py-3 text-xs uppercase text-center">PAYOUT</div>
-                  <div className="w-40 px-4 py-3 text-xs uppercase text-right">ACTION</div>
+                  <div className="w-44 px-4 py-3 text-xs uppercase text-center">FULFILLMENT STATUS</div>
                 </div>
 
                 {filteredOrders.length === 0 ? (
@@ -288,8 +249,8 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
                     <p className="mt-2 text-base font-medium text-stone-600">No orders found</p>
                     <p className="text-sm text-stone-400">
                       {searchQuery
-                        ? "Try clearing your search query"
-                        : "Your sold orders will appear here once customers place purchases."}
+                        ? "Try adjusting your search terms."
+                        : "Platform orders will appear here once customers make purchases."}
                     </p>
                   </div>
                 ) : (
@@ -302,9 +263,21 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
                         #{order.orderId}
                       </div>
 
-                      <div className="w-56 px-4 py-4">
-                        <p className="font-semibold text-neutral-800">{order.customerName}</p>
-                        <p className="text-xs text-stone-500 truncate">{order.customerEmail}</p>
+                      <div className="w-48 px-4 py-4">
+                        <p className="font-semibold text-neutral-800">{order.buyer.name}</p>
+                        <p className="text-xs text-stone-500 truncate">{order.buyer.email}</p>
+                      </div>
+
+                      <div className="w-48 px-4 py-4">
+                        {order.authors.length === 0 ? (
+                          <span className="text-xs text-stone-400">N/A</span>
+                        ) : (
+                          order.authors.map((a) => (
+                            <div key={a.id} className="text-xs">
+                              <span className="font-medium text-neutral-800">{a.name}</span>
+                            </div>
+                          ))
+                        )}
                       </div>
 
                       <div className="flex-1 px-4 py-4">
@@ -314,46 +287,21 @@ export function AuthorOrdersPage({ data, accessToken }: AuthorOrdersPageProps) {
                       </div>
 
                       <div className="w-32 px-4 py-4 font-bold text-neutral-800 text-right">
-                        {order.amount}
+                        {order.formattedAmount}
                       </div>
 
                       <div className="w-32 px-4 py-4 text-stone-600 text-center text-xs">
-                        {order.date}
+                        {order.formattedDate}
                       </div>
 
-                      <div className="w-40 px-4 py-4 text-center">
+                      <div className="w-44 px-4 py-4 text-center">
                         <FulfillmentStatusBadge
-                          status={order.orderStatus}
+                          status={order.status}
                           isUpdating={updatingOrderId === order.id}
                           onChangeStatus={(newStatus) =>
                             updateStatusMutation.mutate({ orderId: order.id, newStatus })
                           }
                         />
-                      </div>
-
-                      <div className="w-36 px-4 py-4 text-center">
-                        <PayoutStatusBadge status={order.payoutStatus} />
-                      </div>
-
-                      <div className="w-40 px-4 py-4 text-right">
-                        {order.canRequestPayout && order.payoutId ? (
-                          <button
-                            type="button"
-                            onClick={() => requestPayoutMutation.mutate(order.payoutId!)}
-                            disabled={requestPayoutMutation.isPending}
-                            className="rounded-md bg-[#cfaf45] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#b89b3c] disabled:opacity-50"
-                          >
-                            Request Payout
-                          </button>
-                        ) : (
-                          <span className="text-xs text-stone-400">
-                            {order.payoutStatus === "PAID"
-                              ? "Paid Out"
-                              : order.payoutStatus === "REQUESTED"
-                                ? "Under Review"
-                                : "N/A"}
-                          </span>
-                        )}
                       </div>
                     </div>
                   ))
