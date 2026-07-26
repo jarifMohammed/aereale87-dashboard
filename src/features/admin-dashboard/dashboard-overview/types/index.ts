@@ -1,24 +1,34 @@
 export type AdminOverviewStat = {
   title: string;
   value: string;
-  change: string;
   detail: string;
-  icon: "traffic" | "tickets" | "authors" | "uptime";
 };
 
-export type AdminActivity = {
-  id: string;
+export type AdminPerformanceMetric = "bookViews" | "readers" | "downloads" | "revenue";
+
+export type AdminPerformancePoint = {
   label: string;
-  meta: string;
+  value: number;
 };
 
 export type AdminDashboardOverviewData = {
   stats: AdminOverviewStat[];
-  approvals: {
-    label: string;
-    value: string;
+  performance: {
+    activeMetric: AdminPerformanceMetric;
+    availableMetrics: AdminPerformanceMetric[];
+    thisWeek: AdminPerformancePoint[];
+    lastWeek: AdminPerformancePoint[];
+    summaryLabel: string;
+  };
+  submissions: {
+    id: string;
+    title: string;
+    author: string;
+    format: string;
+    status: string;
+    reviewValue: string;
+    coverImageUrl: string | null;
   }[];
-  activity: AdminActivity[];
 };
 
 export type AdminStatisticsResponse = {
@@ -27,4 +37,6 @@ export type AdminStatisticsResponse = {
   totalSales: number;
   totalGrossRevenue: number;
   totalPlatformRevenue: number;
+  revenueByDay: Array<{ date: string; revenue: number }>;
+  revenueByMonth: Array<{ month: string; revenue: number }>;
 };

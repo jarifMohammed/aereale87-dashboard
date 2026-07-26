@@ -1,36 +1,46 @@
 "use client";
 
-import { Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 
 import { AuthField } from "./auth-field";
 
 type PasswordFieldProps = {
+  id: string;
   label: string;
   placeholder?: string;
-  name?: string;
+  name: string;
+  minLength?: number;
 };
 
-export function PasswordField({ label, placeholder, name }: PasswordFieldProps) {
+export function PasswordField({
+  id,
+  label,
+  placeholder = "••••••••",
+  name,
+  minLength,
+}: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
 
   return (
     <AuthField
+      id={id}
       label={label}
       type={visible ? "text" : "password"}
       placeholder={placeholder}
       name={name}
       required
-      minLength={8}
-      icon={<Lock className="size-3.5" />}
-      trailing={
+      minLength={minLength ?? 8}
+      icon={<LockKeyhole className="size-4" />}
+      action={
         <button
           type="button"
           onClick={() => setVisible((current) => !current)}
-          className="cursor-pointer text-[#7e9f97] transition-colors hover:text-[#24463d]"
           aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          className="ml-2 text-[#2f5a4d] transition-colors hover:text-[#cfac36]"
         >
-          {visible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+          {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
       }
     />
