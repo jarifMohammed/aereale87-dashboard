@@ -52,13 +52,19 @@ export function SignInForm() {
 
       <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
         <AuthField
+          id="sign-in-email"
           label="Email Address"
           name="email"
           placeholder="you@example.com"
-          icon={<Mail className="size-3.5" />}
+          icon={<Mail className="size-4" />}
           required
         />
-        <PasswordField label="Password" name="password" placeholder="Enter your password" />
+        <PasswordField
+          id="sign-in-password"
+          label="Password"
+          name="password"
+          placeholder="Enter your password"
+        />
 
         <div className="flex items-center justify-between text-[11px] text-[#8b877f]">
           <label className="flex items-center gap-1.5">

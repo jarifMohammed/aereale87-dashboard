@@ -34,6 +34,11 @@ const adminNavItems: DashboardNavItem[] = [
     href: "/admin-dashboard/subscribers",
     icon: "mail",
   },
+  {
+    title: "Settings",
+    href: "/admin-dashboard/settings",
+    icon: "settings",
+  },
 ];
 
 export default async function AdminLayout({

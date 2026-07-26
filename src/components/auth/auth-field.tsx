@@ -1,44 +1,33 @@
-import type { ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
-
-type AuthFieldProps = {
+type AuthFieldProps = InputHTMLAttributes<HTMLInputElement> & {
+  id: string;
   label: string;
   icon?: ReactNode;
-  trailing?: ReactNode;
-  type?: string;
-  placeholder?: string;
-  className?: string;
-  name?: string;
-  required?: boolean;
-  minLength?: number;
+  action?: ReactNode;
 };
 
 export function AuthField({
+  id,
   label,
   icon,
-  trailing,
-  type = "text",
-  placeholder,
+  action,
   className,
-  name,
-  required,
-  minLength,
+  ...props
 }: AuthFieldProps) {
   return (
-    <label className={cn("block space-y-1.5", className)}>
-      <span className="block text-[11px] font-medium text-[#263f37]">{label}</span>
-      <span className="flex h-10 items-center border border-[#e7dfd2] bg-[#fbf9f4] px-3 text-[#8a867d]">
-        {icon ? <span className="mr-2 inline-flex size-4 shrink-0 items-center justify-center">{icon}</span> : null}
+    <label htmlFor={id} className={`block ${className ?? ""}`}>
+      <span className="text-[13px] font-semibold text-[#24463d]">{label}</span>
+      <span className="mt-2 flex h-12 items-center border border-[#e7dfd2] bg-[#fbf9f4] px-3 transition focus-within:border-[#cfac36]">
+        {icon ? (
+          <span className="mr-3 text-[#8c8780]">{icon}</span>
+        ) : null}
         <input
-          type={type}
-          name={name}
-          required={required}
-          minLength={minLength}
-          placeholder={placeholder}
-          className="h-full flex-1 bg-transparent text-[12px] text-[#263f37] outline-none placeholder:text-[#a9a39a]"
+          id={id}
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-[#24463d] outline-none placeholder:text-[#8c8780]"
+          {...props}
         />
-        {trailing ? <span className="ml-2 inline-flex items-center">{trailing}</span> : null}
+        {action}
       </span>
     </label>
   );

@@ -1,12 +1,21 @@
-import { ShieldCheck } from "lucide-react";
+import Image from "next/image";
 
 export function AuthBrand() {
   return (
     <div className="mb-6 flex flex-col items-center text-center">
-      <div className="mb-2 flex size-16 items-center justify-center rounded-full border-4 border-[#9f8a23] bg-[radial-gradient(circle_at_top,_#f6e27f,_#d2ab26_68%,_#9f7d0d_100%)] shadow-[0_8px_24px_-14px_rgba(159,125,13,0.85)]">
-        <ShieldCheck className="size-8 text-[#214238]" strokeWidth={2.3} />
+      <div className="mb-3 overflow-hidden rounded-[18px] border border-[#e7dfd2] bg-white px-3 py-2 shadow-[0_10px_30px_-20px_rgba(58,44,10,0.35)]">
+        <Image
+          src="/logo.svg"
+          alt="Wonder Emporium logo"
+          width={150}
+          height={90}
+          className="h-auto w-[132px]"
+          priority
+        />
       </div>
-      <p className="text-[13px] font-semibold text-[#5b4e12]">Wonder Emporium</p>
+      <p className="text-[13px] font-semibold text-[#5b4e12]">
+        Wonder Emporium
+      </p>
     </div>
   );
 }

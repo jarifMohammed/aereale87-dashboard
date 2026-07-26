@@ -368,6 +368,27 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
           <RoyaltyCalculator isFoundingAuthor={isFoundingAuthor} />
         </CardContent>
       </Card>
+      <Card className="rounded-none bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+        <CardHeader className="px-5 py-4 border-b border-[#e7e1d5]">
+          <CardTitle className="text-[18px] font-bold text-[#23272e]">
+            Distribution Path <span className="text-[#d16b37]">*</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-5">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DistributionPathCard
+              title="WE Exclusive"
+              percentage="65%"
+              description="Maximum earnings. Your book is sold exclusively through the Wonder Emporium marketplace."
+            />
+            <DistributionPathCard
+              title="Wide Distribution"
+              percentage="45%"
+              description="Expanded reach. Distribute to Amazon, Barnes & Noble, and independent bookstores globally."
+            />
+          </div>
+        </CardContent>
+      </Card>
       <button
         disabled={pending || (book != null && !["DRAFT", "REJECTED"].includes(book.status))}
         className="inline-flex h-12 items-center gap-2 rounded-md bg-[#cfaf45] px-6 font-semibold text-white hover:bg-[#b79731] disabled:opacity-50"
@@ -694,6 +715,37 @@ function RoyaltyCalculator({ isFoundingAuthor = false }: { isFoundingAuthor?: bo
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium text-slate-600">Platform Fee</span>
           <span className="text-lg font-bold text-slate-700">${adminEarnings.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DistributionPathCard({
+  title,
+  percentage,
+  description,
+}: {
+  title: string;
+  percentage: string;
+  description: string;
+}) {
+  return (
+    <div className="self-stretch bg-white p-5 inline-flex flex-col justify-start items-start gap-2 outline outline-2 outline-offset-[-2px] outline-stone-300">
+      <div className="inline-flex w-full items-start justify-between">
+        <div className="text-2xl font-semibold leading-7 text-neutral-800">
+          {title}
+        </div>
+        <div className="flex size-5 items-center justify-center rounded-full outline outline-2 outline-offset-[-2px] outline-stone-200">
+          <div className="size-2.5 rounded-full bg-orange-400 opacity-0" />
+        </div>
+      </div>
+      <div className="w-full">
+        <div className="text-2xl font-bold leading-7 text-neutral-800">{percentage}</div>
+      </div>
+      <div className="w-full">
+        <div className="text-base font-normal leading-5 text-neutral-500">
+          {description}
         </div>
       </div>
     </div>

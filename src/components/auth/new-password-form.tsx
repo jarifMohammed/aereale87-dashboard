@@ -31,8 +31,36 @@ export function NewPasswordForm() {
     } finally { setPending(false); }
   }
 
-  return <AuthShell className="max-w-[340px] px-5 py-5">
-    <div className="space-y-1"><h1 className="text-[16px] font-semibold text-[#263f37]">New Password</h1><p className="text-[10px] leading-4 text-[#8c8780]">Create a new password with at least eight characters.</p></div>
-    <form className="mt-5 space-y-3" onSubmit={submit}><PasswordField label="Create a password" name="password" placeholder="Create a password" /><PasswordField label="Confirm Password" name="confirmPassword" placeholder="Confirm your password" /><button type="submit" disabled={pending} className="flex h-10 w-full items-center justify-center bg-[#d3af39] text-[11px] font-bold uppercase tracking-[0.16em] text-white hover:bg-[#be9a27] disabled:opacity-50">{pending ? "Updating..." : "Continue"}</button></form>
-  </AuthShell>;
+  return (
+    <AuthShell narrow>
+      <h1 className="text-[30px] font-bold leading-[1.15] text-[#24463d]">
+        New Password
+      </h1>
+      <p className="mt-2 text-[15px] leading-[1.45] text-[#8c8780]">
+        Please create your new password.
+      </p>
+
+      <form className="mt-8 space-y-5" onSubmit={submit}>
+        <PasswordField
+          id="new-password"
+          label="Create a password"
+          name="password"
+          placeholder="Create a password"
+        />
+        <PasswordField
+          id="new-password-confirm"
+          label="Confirm Password"
+          name="confirmPassword"
+          placeholder="Confirm your password"
+        />
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex h-14 w-full items-center justify-center bg-[#cfac36] px-6 text-[13px] font-bold uppercase tracking-[0.64px] text-white transition hover:bg-[#24463d] disabled:opacity-50"
+        >
+          {pending ? "Updating..." : "Continue"}
+        </button>
+      </form>
+    </AuthShell>
+  );
 }
