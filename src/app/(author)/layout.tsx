@@ -30,6 +30,16 @@ const authorNavItems: DashboardNavItem[] = [
     icon: "shopping-cart",
   },
   {
+    title: "Tax Forms",
+    href: "/author-dashboard/tax-forms",
+    icon: "receipt-text",
+  },
+  {
+    title: "Payment Info",
+    href: "/author-dashboard/payment-info",
+    icon: "file-text",
+  },
+  {
     title: "Settings",
     href: "/author-dashboard/settings",
     icon: "settings",

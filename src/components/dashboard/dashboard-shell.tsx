@@ -17,7 +17,9 @@ export type DashboardNavItem = {
     | "upload"
     | "wallet"
     | "shopping-cart"
-    | "settings";
+    | "settings"
+    | "file-text"
+    | "receipt-text";
   disabled?: boolean;
 };
 

@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BookOpenText,
+  FileText,
   LayoutDashboard,
   Mail,
   MessageSquare,
   PenSquare,
+  ReceiptText,
   Shield,
   Settings,
   ShoppingCart,
@@ -34,6 +36,8 @@ const iconMap = {
   wallet: Wallet,
   "shopping-cart": ShoppingCart,
   settings: Settings,
+  "file-text": FileText,
+  "receipt-text": ReceiptText,
 } as const;
 
 type SidebarItemProps = {
