@@ -1,10 +1,11 @@
 "use client";
 
-import { Calculator, MoreVertical } from "lucide-react";
+import { Calculator, MoreVertical, ShieldCheck, FileText, CreditCard, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 import type { AuthorChartPoint, AuthorDashboardOverviewData } from "../types";
 
@@ -48,7 +49,73 @@ export function AuthorDashboardOverview({ data }: AuthorDashboardOverviewProps) 
   const chart = buildChartPath(data.chartPoints);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
+      {/* ONBOARDING FLOW SECTION */}
+      <section>
+        <Card className="rounded-lg border border-[#e7e1d5] bg-gradient-to-br from-white to-[#fcfaf5] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+          <CardHeader className="border-b border-[#e7e1d5] px-6 py-5">
+            <CardTitle className="text-xl font-bold text-[#23272e]">
+              Author Onboarding & Payment Guide
+            </CardTitle>
+            <p className="mt-1 text-sm text-[#6a717f]">
+              Complete these steps to verify your identity, set up payment information, and start publishing books.
+            </p>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid gap-6 md:grid-cols-4 relative">
+              <div className="absolute top-1/2 left-0 right-0 hidden h-0.5 -translate-y-1/2 bg-[#e7e1d5] md:block" />
+              
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-[#f2edd9] text-[#997b1e] ring-8 ring-white">
+                  <ShieldCheck className="size-6" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-slate-900">1. Account Approval</h3>
+                <p className="mb-3 px-2 text-xs text-slate-500">Wait for your author account to be reviewed and activated by our team.</p>
+                <div className="mt-auto">
+                  <span className="inline-flex rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-green-700 ring-1 ring-green-600/20">
+                    Active
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-white text-[#997b1e] ring-8 ring-white border-2 border-[#f2edd9]">
+                  <FileText className="size-6" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-slate-900">2. Tax Verification</h3>
+                <p className="mb-3 px-2 text-xs text-slate-500">Submit your ID and tax forms. We are legally required to verify this before you can publish.</p>
+                <Link href="/author-dashboard/tax-forms" className="mt-auto inline-flex items-center justify-center rounded-md bg-[#cfaf45] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#b79731] transition-colors">
+                  Submit Forms
+                </Link>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-white text-[#997b1e] ring-8 ring-white border-2 border-[#f2edd9]">
+                  <CreditCard className="size-6" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-slate-900">3. Payment Onboarding</h3>
+                <p className="mb-3 px-2 text-xs text-slate-500">Link your bank account via Stripe to receive royalties and payouts automatically.</p>
+                <Link href="/author-dashboard/payment-info" className="mt-auto inline-flex items-center justify-center rounded-md bg-[#24352f] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#1a2622] transition-colors">
+                  Setup Payments
+                </Link>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-white text-[#997b1e] ring-8 ring-white border-2 border-[#f2edd9]">
+                  <BookOpen className="size-6" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-slate-900">4. Publish Book</h3>
+                <p className="mb-3 px-2 text-xs text-slate-500">Once verified and onboarded, you can list your books for sale on the platform.</p>
+                <Link href="/author-dashboard/upload-content" className="mt-auto inline-flex items-center justify-center rounded-md border border-[#e7e1d5] bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                  Upload Book
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* DASHBOARD STATS */}
       <section className="grid gap-4 xl:grid-cols-3">
         {data.stats.map((stat) => {
           const changeClassName =
@@ -127,6 +194,7 @@ export function AuthorDashboardOverview({ data }: AuthorDashboardOverviewProps) 
         })}
       </section>
 
+      {/* WEEKLY METRICS CHART */}
       <section>
         <Card className="rounded-lg border border-[#e7e1d5] bg-white py-0 shadow-[0_1px_3px_rgba(0,0,0,0.2)] ring-0">
           <CardContent className="relative h-[460px] overflow-hidden p-0">
@@ -218,6 +286,7 @@ export function AuthorDashboardOverview({ data }: AuthorDashboardOverviewProps) 
         </Card>
       </section>
 
+      {/* BEST SELLING PRODUCT */}
       <section>
         <Card className="rounded-lg border border-[#e7e1d5] bg-white py-0 shadow-[0_1px_3px_rgba(0,0,0,0.2)] ring-0">
           <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 py-4">
@@ -271,8 +340,6 @@ export function AuthorDashboardOverview({ data }: AuthorDashboardOverviewProps) 
         </Card>
       </section>
 
-
-
       <div className="pointer-events-none fixed bottom-5 right-5 z-20 hidden lg:block">
         <div className="flex h-[82px] w-[82px] flex-col items-center justify-center rounded-full border border-[#e4dfd5] bg-[#fcfbf7] shadow-[0_0_4px_rgba(0,0,0,0.25)]">
           <div className="flex size-10 items-center justify-center rounded-full bg-[#dbe8f6] text-[12px] font-bold text-[#325f91]">
@@ -286,4 +353,3 @@ export function AuthorDashboardOverview({ data }: AuthorDashboardOverviewProps) 
     </div>
   );
 }
-
