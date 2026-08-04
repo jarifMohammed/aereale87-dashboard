@@ -28,6 +28,10 @@ type KycApiResponse =
       data?: KycRecord | null;
     };
 
+function isWrappedKycResponse(payload: KycApiResponse): payload is Extract<KycApiResponse, { data?: KycRecord | null }> {
+  return typeof payload === "object" && payload !== null && "data" in payload;
+}
+
 interface Props {
   authorId: string;
   accessToken: string;
@@ -54,10 +58,9 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
         });
         if (res.ok) {
           const payload = (await res.json()) as KycApiResponse;
-          const record =
-            payload && typeof payload === "object" && "data" in payload
-              ? payload.data ?? null
-              : payload;
+          const record: KycRecord | null = isWrappedKycResponse(payload)
+            ? payload.data ?? null
+            : payload;
           setKyc(record);
         } else {
           setKyc(null);
