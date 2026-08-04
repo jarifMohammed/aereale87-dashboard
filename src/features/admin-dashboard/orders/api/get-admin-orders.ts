@@ -9,13 +9,13 @@ type BackendAdminOrder = {
   subtotal: number;
   taxAmount: number;
   createdAt: string;
-  buyer: {
+  buyer?: {
     id: string;
     name: string;
     email: string;
-  };
-  authors: { id: string; name: string; email: string }[];
-  items: {
+  } | null;
+  authors?: { id: string; name: string; email: string }[] | null;
+  items?: {
     id: string;
     bookId: string;
     bookTitle: string;
@@ -26,14 +26,14 @@ type BackendAdminOrder = {
     quantity: number;
     totalPrice: number;
     authorId: string;
-  }[];
-  payouts: {
+  }[] | null;
+  payouts?: {
     id: string;
     authorId: string;
     amount: number;
     platformFee: number;
     status: string;
-  }[];
+  }[] | null;
 };
 
 function formatCurrency(value: number) {
@@ -71,8 +71,17 @@ export async function getAdminOrders(
   }
 
   const records: AdminOrderRecord[] = rawOrders.map((order) => {
+    const items = order.items ?? [];
+    const buyer = order.buyer ?? {
+      id: "",
+      name: "Unknown Customer",
+      email: "No email",
+    };
+    const authors = order.authors ?? [];
+    const payouts = order.payouts ?? [];
+
     const productsSummary =
-      order.items
+      items
         ?.map((i) => `${i.bookTitle} (${i.formatType} x${i.quantity})`)
         .join(", ") || "Order Items";
 
@@ -84,6 +93,10 @@ export async function getAdminOrders(
 
     return {
       ...order,
+      buyer,
+      authors,
+      items,
+      payouts,
       orderId: order.id.slice(0, 8).toUpperCase(),
       formattedDate,
       formattedAmount: formatCurrency(order.totalAmount || 0),

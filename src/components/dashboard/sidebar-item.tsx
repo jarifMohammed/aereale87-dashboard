@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BadgeCheck,
   BookOpenText,
   FileText,
   LayoutDashboard,
@@ -38,6 +39,7 @@ const iconMap = {
   settings: Settings,
   "file-text": FileText,
   "receipt-text": ReceiptText,
+  "badge-check": BadgeCheck,
 } as const;
 
 type SidebarItemProps = {

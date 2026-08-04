@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Link from "next/link";
 import {
   Upload,
   FileImage,
@@ -13,9 +14,7 @@ import {
   Clock,
   FileText,
   RefreshCcw,
-  Globe,
-  User,
-  Hash,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -202,12 +201,6 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
   const [kycSubmittedAt, setKycSubmittedAt] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
 
-  // Tax form fields
-  const [taxFormType, setTaxFormType] = useState("W-9");
-  const [taxpayerName, setTaxpayerName] = useState("");
-  const [taxId, setTaxId] = useState("");
-  const [taxCountry, setTaxCountry] = useState("US");
-
   useEffect(() => {
     void (async () => {
       try {
@@ -251,9 +244,9 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
       setSubmitMessage("Please upload both front and back sides of your ID.");
       return;
     }
-    if (!taxpayerName.trim() || !taxId.trim() || !taxCountry.trim()) {
+    if (!taxFormFile.file) {
       setSubmitStatus("error");
-      setSubmitMessage("Please fill in all tax form fields.");
+      setSubmitMessage("Please upload your Tax Form Document.");
       return;
     }
 
@@ -262,16 +255,13 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
     setSubmitMessage(null);
     setIdFront((p) => ({ ...p, status: "uploading" }));
     setIdBack((p) => ({ ...p, status: "uploading" }));
+    setTaxFormFile((p) => ({ ...p, status: "uploading" }));
 
     try {
       const formData = new FormData();
       formData.append("idFront", idFront.file);
       formData.append("idBack", idBack.file);
-      if (taxFormFile.file) formData.append("taxFormFile", taxFormFile.file);
-      formData.append("taxFormType", taxFormType);
-      formData.append("taxpayerName", taxpayerName.trim());
-      formData.append("taxId", taxId.trim());
-      formData.append("taxCountry", taxCountry.trim());
+      formData.append("taxFormFile", taxFormFile.file);
 
       const res = await fetch("/api/author/tax-forms", {
         method: "POST",
@@ -284,6 +274,7 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
 
       setIdFront((p) => ({ ...p, status: "success" }));
       setIdBack((p) => ({ ...p, status: "success" }));
+      setTaxFormFile((p) => ({ ...p, status: "success" }));
       setSubmitStatus("success");
       setSubmitMessage(json.message ?? "Documents submitted successfully.");
       setKycStatus(json.kycStatus ?? "SUBMITTED");
@@ -291,6 +282,7 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
       setIdFront((p) => ({ ...p, status: "error", errorMessage: message }));
       setIdBack((p) => ({ ...p, status: "error", errorMessage: message }));
+      setTaxFormFile((p) => ({ ...p, status: "error", errorMessage: message }));
       setSubmitStatus("error");
       setSubmitMessage(message);
     } finally {
@@ -298,7 +290,7 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
     }
   };
 
-  const canSubmit = !!idFront.file && !!idBack.file && !!taxpayerName.trim() && !!taxId.trim() && !!taxCountry.trim() && !isSubmitting && canResubmit;
+  const canSubmit = !!idFront.file && !!idBack.file && !!taxFormFile.file && !isSubmitting && canResubmit;
 
   const statusInfo = statusConfig[kycStatus];
 
@@ -356,7 +348,7 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
           <div className="text-sm text-neutral-700">
             <p className="font-semibold">Two-step verification required</p>
             <p className="mt-0.5 text-neutral-500">
-              Upload your government-issued ID (front & back) and fill in your tax information. Both are required
+              Upload your government-issued ID (front & back) and your tax form document. Both are required
               before you can publish books. Documents are reviewed within 1–3 business days.
             </p>
           </div>
@@ -407,79 +399,28 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
                 <FileText className="size-4 text-white" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-neutral-900">Step 2 — Tax Information</h2>
-                <p className="text-xs text-neutral-500">Required by financial regulations for authors receiving payouts</p>
+                <h2 className="text-base font-bold text-neutral-900">Step 2 — Tax Form Document</h2>
+                <p className="text-xs text-neutral-500">Upload your completed and signed tax form PDF</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {/* Tax Form Type */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-neutral-600 flex items-center gap-1.5">
-                  <FileText className="size-3.5" /> Tax Form Type
-                </label>
-                <select
-                  value={taxFormType}
-                  onChange={(e) => setTaxFormType(e.target.value)}
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-neutral-800 focus:border-[#66756d] focus:outline-none focus:ring-2 focus:ring-[#66756d]/20"
+            <div className="mt-1">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Required
+                </p>
+                <Link
+                  href="/TaxFormDocument.pdf"
+                  download="TaxFormDocument.pdf"
+                  className="inline-flex items-center gap-2 self-start rounded-lg border border-[#cfaf45]/30 bg-[#cfaf45]/10 px-4 py-2 text-sm font-semibold text-[#8f7421] transition hover:bg-[#cfaf45]/20"
                 >
-                  <option value="W-9">W-9 (US Person / Entity)</option>
-                  <option value="W-8BEN">W-8BEN (Non-US Individual)</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <Download className="size-4" />
+                  Download Tax Form PDF
+                </Link>
               </div>
-
-              {/* Tax Country */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-neutral-600 flex items-center gap-1.5">
-                  <Globe className="size-3.5" /> Country of Tax Residence
-                </label>
-                <input
-                  type="text"
-                  value={taxCountry}
-                  onChange={(e) => setTaxCountry(e.target.value)}
-                  placeholder="e.g. US, GB, IN"
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-[#66756d] focus:outline-none focus:ring-2 focus:ring-[#66756d]/20"
-                />
-              </div>
-
-              {/* Taxpayer Name */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-neutral-600 flex items-center gap-1.5">
-                  <User className="size-3.5" /> Full Legal Name / Entity Name
-                </label>
-                <input
-                  type="text"
-                  value={taxpayerName}
-                  onChange={(e) => setTaxpayerName(e.target.value)}
-                  placeholder="As it appears on your tax documents"
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-[#66756d] focus:outline-none focus:ring-2 focus:ring-[#66756d]/20"
-                />
-              </div>
-
-              {/* Tax ID */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-neutral-600 flex items-center gap-1.5">
-                  <Hash className="size-3.5" /> Tax Identification Number
-                </label>
-                <input
-                  type="text"
-                  value={taxId}
-                  onChange={(e) => setTaxId(e.target.value)}
-                  placeholder="SSN, EIN, or foreign TIN"
-                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-[#66756d] focus:outline-none focus:ring-2 focus:ring-[#66756d]/20"
-                />
-              </div>
-            </div>
-
-            {/* Optional tax form PDF upload */}
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                Optional — Upload completed tax form PDF
-              </p>
               <DropZone
                 id="tax-form-file"
-                label="Tax Form Document (Optional)"
+                label="Tax Form Document"
                 sublabel="Upload your signed W-9, W-8BEN, or equivalent"
                 icon={<FileText className="size-5 text-neutral-400" />}
                 state={taxFormFile}
@@ -507,7 +448,7 @@ export function TaxFormsPage({ accessToken }: TaxFormsPageProps) {
           <div className="flex items-center justify-between rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-stone-200">
             <div>
               <p className="text-xs font-medium text-neutral-700">
-                {kycStatus === "REJECTED" ? "Resubmitting will replace your previous submission." : "Both steps must be completed before submitting."}
+                {kycStatus === "REJECTED" ? "Resubmitting will replace your previous submission." : "All required documents must be uploaded before submitting."}
               </p>
               <p className="text-xs text-neutral-400 mt-0.5">Documents reviewed within 1–3 business days.</p>
             </div>

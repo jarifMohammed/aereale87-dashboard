@@ -146,9 +146,9 @@ export function AdminOrdersPage({ data, accessToken }: AdminOrdersPageProps) {
       const q = searchQuery.toLowerCase();
       const matchId = order.orderId.toLowerCase().includes(q) || order.id.toLowerCase().includes(q);
       const matchCustomer =
-        order.buyer.name.toLowerCase().includes(q) ||
-        order.buyer.email.toLowerCase().includes(q);
-      const matchAuthors = order.authors.some(
+        (order.buyer?.name ?? "").toLowerCase().includes(q) ||
+        (order.buyer?.email ?? "").toLowerCase().includes(q);
+      const matchAuthors = (order.authors ?? []).some(
         (a) => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
       );
       const matchProducts = order.productsSummary.toLowerCase().includes(q);
@@ -264,15 +264,15 @@ export function AdminOrdersPage({ data, accessToken }: AdminOrdersPageProps) {
                       </div>
 
                       <div className="w-48 px-4 py-4">
-                        <p className="font-semibold text-neutral-800">{order.buyer.name}</p>
-                        <p className="text-xs text-stone-500 truncate">{order.buyer.email}</p>
+                        <p className="font-semibold text-neutral-800">{order.buyer?.name ?? "Unknown Customer"}</p>
+                        <p className="text-xs text-stone-500 truncate">{order.buyer?.email ?? "No email"}</p>
                       </div>
 
                       <div className="w-48 px-4 py-4">
-                        {order.authors.length === 0 ? (
+                        {(order.authors ?? []).length === 0 ? (
                           <span className="text-xs text-stone-400">N/A</span>
                         ) : (
-                          order.authors.map((a) => (
+                          (order.authors ?? []).map((a) => (
                             <div key={a.id} className="text-xs">
                               <span className="font-medium text-neutral-800">{a.name}</span>
                             </div>

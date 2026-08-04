@@ -19,7 +19,8 @@ export type DashboardNavItem = {
     | "shopping-cart"
     | "settings"
     | "file-text"
-    | "receipt-text";
+    | "receipt-text"
+    | "badge-check";
   disabled?: boolean;
 };
 

@@ -15,9 +15,11 @@ import { getBookFileUrl, type BookFileType } from "../types";
 export function AdminBooksApprovalPage({
   data,
   accessToken,
+  errorMessage,
 }: {
   data: AdminPendingBooksData;
   accessToken: string;
+  errorMessage?: string;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -55,6 +57,12 @@ export function AdminBooksApprovalPage({
           </p>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
 
       <Card className="rounded-lg bg-white py-0 shadow-sm ring-1 ring-black/10">
         <CardContent className="p-6">

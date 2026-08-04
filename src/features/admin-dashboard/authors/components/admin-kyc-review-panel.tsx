@@ -20,6 +20,14 @@ interface KycRecord {
   reviewedAt: string | null;
 }
 
+type KycApiResponse =
+  | KycRecord
+  | {
+      statusCode?: number;
+      message?: string;
+      data?: KycRecord | null;
+    };
+
 interface Props {
   authorId: string;
   accessToken: string;
@@ -36,7 +44,6 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
   const [kyc, setKyc] = useState<KycRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [adminNote, setAdminNote] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -46,8 +53,12 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (res.ok) {
-          const data = (await res.json()) as KycRecord;
-          setKyc(data);
+          const payload = (await res.json()) as KycApiResponse;
+          const record =
+            payload && typeof payload === "object" && "data" in payload
+              ? payload.data ?? null
+              : payload;
+          setKyc(record);
         } else {
           setKyc(null);
         }
@@ -67,15 +78,20 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
       const res = await fetch(`/api/admin/kyc/${authorId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ decision, adminNote: adminNote.trim() || undefined }),
+        body: JSON.stringify({ decision }),
       });
       const data = (await res.json()) as { kycStatus?: KycStatus; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Failed to update KYC status.");
-      setKyc((prev) => prev ? { ...prev, kycStatus: data.kycStatus ?? decision, adminNote: adminNote.trim() || null } : prev);
-      setMessage({ type: "success", text: `KYC ${decision === "APPROVED" ? "approved" : "rejected"} successfully. Author will be notified by email.` });
-      setAdminNote("");
+      setKyc((prev) => (prev ? { ...prev, kycStatus: data.kycStatus ?? decision } : prev));
+      setMessage({
+        type: "success",
+        text: `KYC ${decision === "APPROVED" ? "approved" : "rejected"} successfully.`,
+      });
     } catch (err) {
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Something went wrong.",
+      });
     } finally {
       setActionLoading(false);
     }
@@ -122,21 +138,19 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
       {/* Submitted / reviewed */}
       {kyc && kyc.kycStatus !== "NOT_SUBMITTED" && (
         <>
-          {/* Tax Form Info */}
-          <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 space-y-3">
-            <h3 className="text-sm font-bold text-neutral-800">Tax Form Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <KycDetail label="Form Type" value={kyc.taxFormType ?? "—"} />
-              <KycDetail label="Country" value={kyc.taxCountry ?? "—"} />
-              <KycDetail label="Taxpayer Name" value={kyc.taxpayerName ?? "—"} />
-              <KycDetail label="Tax ID" value={kyc.taxId ? `•••-${kyc.taxId.slice(-4)}` : "—"} />
-            </div>
-            {kyc.submittedAt && (
-              <p className="text-xs text-neutral-400 pt-1">
-                Submitted {new Date(kyc.submittedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+          {kyc.submittedAt && (
+            <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
+                Submission Time
               </p>
-            )}
-          </div>
+              <p className="mt-2 text-sm font-semibold text-neutral-800">
+                {new Date(kyc.submittedAt).toLocaleString("en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </p>
+            </div>
+          )}
 
           {/* ID Document Photos */}
           <div className="space-y-3">
@@ -158,31 +172,10 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
             )}
           </div>
 
-          {/* Admin Note (previous) */}
-          {kyc.adminNote && (
-            <div className="rounded-lg bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
-              <p className="text-xs font-semibold text-amber-700">Previous admin note:</p>
-              <p className="mt-0.5 text-sm text-amber-800">{kyc.adminNote}</p>
-            </div>
-          )}
-
-          {/* Review Actions — only show if SUBMITTED */}
           {kyc.kycStatus === "SUBMITTED" && (
             <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 space-y-4">
               <h3 className="text-sm font-bold text-neutral-800">Review Decision</h3>
-              <div>
-                <label className="text-xs font-semibold text-neutral-500 mb-1 block">
-                  Admin Note (optional — shown to author on rejection)
-                </label>
-                <textarea
-                  value={adminNote}
-                  onChange={(e) => setAdminNote(e.target.value)}
-                  placeholder="e.g. ID photo is blurry. Please resubmit a clearer photo."
-                  rows={3}
-                  className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-[#66756d] focus:outline-none focus:ring-2 focus:ring-[#66756d]/20 resize-none"
-                />
-              </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => void handleReview("APPROVED")}
                   disabled={actionLoading}
@@ -212,25 +205,23 @@ export function AdminKycReviewPanel({ authorId, accessToken }: Props) {
         </>
       )}
 
-      {/* Result message */}
       {message && (
-        <div className={cn(
-          "flex items-center gap-2 rounded-xl px-4 py-3 text-sm ring-1",
-          message.type === "success" ? "bg-green-50 text-green-700 ring-green-200" : "bg-red-50 text-red-600 ring-red-200"
-        )}>
-          {message.type === "success" ? <CheckCircle className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0" />}
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-4 py-3 text-sm ring-1",
+            message.type === "success"
+              ? "bg-green-50 text-green-700 ring-green-200"
+              : "bg-red-50 text-red-600 ring-red-200",
+          )}
+        >
+          {message.type === "success" ? (
+            <CheckCircle className="size-4 shrink-0" />
+          ) : (
+            <AlertCircle className="size-4 shrink-0" />
+          )}
           {message.text}
         </div>
       )}
-    </div>
-  );
-}
-
-function KycDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="text-sm font-semibold text-neutral-800 mt-0.5">{value}</p>
     </div>
   );
 }

@@ -20,19 +20,15 @@ export async function POST(req: NextRequest) {
 
   const idFrontFile = formData.get("idFront");
   const idBackFile = formData.get("idBack");
-  const taxFormFile = formData.get("taxFormFile"); // optional PDF
-  const taxFormType = formData.get("taxFormType");
-  const taxpayerName = formData.get("taxpayerName");
-  const taxId = formData.get("taxId");
-  const taxCountry = formData.get("taxCountry");
+  const taxFormFile = formData.get("taxFormFile");
 
   if (!(idFrontFile instanceof File) || !(idBackFile instanceof File)) {
     return NextResponse.json({ error: "Both ID front and back images are required." }, { status: 400 });
   }
-  if (!taxFormType || !taxpayerName || !taxId || !taxCountry) {
-    return NextResponse.json({ error: "Tax form fields (taxFormType, taxpayerName, taxId, taxCountry) are required." }, { status: 400 });
+  if (!(taxFormFile instanceof File)) {
+    return NextResponse.json({ error: "Tax Form Document is required." }, { status: 400 });
   }
-  for (const [label, file] of [["ID front", idFrontFile], ["ID back", idBackFile]] as [string, File][]) {
+  for (const [label, file] of [["ID front", idFrontFile], ["ID back", idBackFile], ["Tax form document", taxFormFile]] as [string, File][]) {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json({ error: `Invalid file type for ${label}: ${file.type}` }, { status: 422 });
     }
@@ -47,11 +43,7 @@ export async function POST(req: NextRequest) {
       const backendForm = new FormData();
       backendForm.append("idFront", idFrontFile);
       backendForm.append("idBack", idBackFile);
-      if (taxFormFile instanceof File) backendForm.append("taxFormFile", taxFormFile);
-      backendForm.append("taxFormType", taxFormType as string);
-      backendForm.append("taxpayerName", taxpayerName as string);
-      backendForm.append("taxId", taxId as string);
-      backendForm.append("taxCountry", taxCountry as string);
+      backendForm.append("taxFormFile", taxFormFile);
 
       const backendRes = await fetch(`${apiUrl}/author/kyc/submit`, {
         method: "POST",
@@ -72,8 +64,9 @@ export async function POST(req: NextRequest) {
 
   // Dev fallback
   console.log(`[kyc] Received submission from ${session.user.email}:`, {
-    idFront: idFrontFile.name, idBack: idBackFile.name,
-    taxFormType, taxpayerName, taxCountry,
+    idFront: idFrontFile.name,
+    idBack: idBackFile.name,
+    taxFormFile: taxFormFile.name,
   });
   return NextResponse.json({ message: "Documents submitted. Pending admin review.", kycStatus: "SUBMITTED" }, { status: 200 });
 }

@@ -25,6 +25,11 @@ const adminNavItems: DashboardNavItem[] = [
     icon: "users",
   },
   {
+    title: "Author KYC",
+    href: "/admin-dashboard/author-kyc",
+    icon: "badge-check",
+  },
+  {
     title: "Payouts",
     href: "/admin-dashboard/payouts",
     icon: "wallet",
