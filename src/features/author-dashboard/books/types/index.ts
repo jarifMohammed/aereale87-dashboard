@@ -13,6 +13,8 @@ export type BackendBook = {
   ebookAvailable?: boolean;
   audiobookAvailable?: boolean;
   printAvailable?: boolean;
+  publicationDetails?: string | null;
+  printEdition?: any;
   createdAt: string;
   updatedAt: string;
 };
