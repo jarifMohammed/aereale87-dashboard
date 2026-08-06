@@ -35,6 +35,8 @@ export type AdminPendingBook = {
   }>;
   bookCover: string | null;
   files: AdminPendingBookFile[];
+  publicationDetails?: string | null;
+  printEdition?: any;
   author?: {
     id: string;
     username: string;
