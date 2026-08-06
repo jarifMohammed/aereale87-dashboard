@@ -2,12 +2,13 @@
 
 import { FormEvent, useEffect, useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, FileAudio, FileText, Save, Package } from "lucide-react";
+import { BookOpen, FileAudio, FileText, Save, Package, Calendar, Eye, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import type { BackendBook } from "../../books/types";
 
 type FormatKey = "EBOOK" | "AUDIOBOOK" | "HARDCOVER" | "PAPERBACK";
 type PrintFormatKey = Extract<FormatKey, "HARDCOVER" | "PAPERBACK">;
@@ -22,6 +23,8 @@ type EditBook = {
   ageGroup: string | null;
   formats: Array<{ formatType: FormatKey; listPrice: number; pageCount?: number; trimSize?: string }>;
   status: string;
+  publicationDetails: string | null;
+  printEdition?: any;
 };
 
 type BookTypeOption = { value: string; label: string; trimSku: string };
@@ -63,6 +66,10 @@ type PrintFileValidationResult = {
   podPackageId?: string;
   interiorPageCount?: number;
   coverDimensions?: { width: string; height: string; unit: string };
+  files?: {
+    interiorPdf?: { url: string };
+    coverPdf?: { url: string };
+  };
 };
 
 type PrintOptionsResponse = {
@@ -93,6 +100,21 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
   const [matchedSpecs, setMatchedSpecs] = useState<Record<string, MatchResult>>({});
   const [fileValidationPending, setFileValidationPending] = useState<Record<string, boolean>>({});
   const [fileValidations, setFileValidations] = useState<Record<string, PrintFileValidationResult>>({});
+  const [distributionPath, setDistributionPath] = useState<"exclusive" | "wide">("exclusive");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [submitType, setSubmitType] = useState<"save" | "publish">("save");
+
+  useEffect(() => {
+    if (!book?.publicationDetails) return;
+    try {
+      const details = JSON.parse(book.publicationDetails);
+      if (details.distributionPath === "exclusive" || details.distributionPath === "wide") {
+        setDistributionPath(details.distributionPath);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [book]);
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/print/specifications`, {
@@ -177,6 +199,10 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitType === "publish" && !agreedToTerms) {
+      return toast.error("You must agree to the Terms and Conditions to publish.");
+    }
+
     const source = new FormData(event.currentTarget);
     if (!formats.length) return toast.error("Select at least one book format.");
     const body = new FormData();
@@ -248,6 +274,26 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
       );
     }
 
+    let authorPercentage = 0.50;
+    if (isFoundingAuthor) {
+      authorPercentage = 0.85;
+    } else if (distributionPath === "exclusive") {
+      authorPercentage = 0.70;
+    } else {
+      authorPercentage = 0.50;
+    }
+    body.set("authorEarnings", String(authorPercentage));
+
+    body.set(
+      "publicationDetails",
+      JSON.stringify({
+        publicationDate: String(source.get("publicationDate") || ""),
+        totalPageCount: Number(source.get("totalPageCount") || 0),
+        bookDimensions: String(source.get("bookDimensions") || ""),
+        distributionPath,
+      }),
+    );
+
     setPending(true);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/books${bookId ? `/${bookId}` : ""}`, {
       method: bookId ? "PUT" : "POST",
@@ -255,12 +301,46 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
       body,
     });
     const payload = await response.json();
-    setPending(false);
-    if (!response.ok) return toast.error(payload.message || "Unable to save book.");
-    toast.success(bookId ? "Book updated." : "Draft book created.");
+    if (!response.ok) {
+      setPending(false);
+      return toast.error(payload.message || "Unable to save book.");
+    }
+
+    const savedBook = unwrapApiData<BackendBook>(payload);
+    const actualBookId = bookId || savedBook?.id;
+
+    if (submitType === "publish" && actualBookId) {
+      const submitResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/books/${actualBookId}/submit`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const submitPayload = await submitResponse.json();
+      setPending(false);
+      if (!submitResponse.ok) {
+        return toast.error(submitPayload.message || "Book saved, but unable to submit for review.");
+      }
+      toast.success("Book successfully published and submitted for review.");
+    } else {
+      setPending(false);
+      toast.success(bookId ? "Book updated." : "Draft book created.");
+    }
+
     router.push("/author-dashboard/books");
     router.refresh();
   }
+
+  const parsedPublicationDetails = useMemo(() => {
+    if (!book?.publicationDetails) return null;
+    try {
+      return JSON.parse(book.publicationDetails) as {
+        publicationDate?: string;
+        totalPageCount?: number;
+        bookDimensions?: string;
+      };
+    } catch {
+      return null;
+    }
+  }, [book?.publicationDetails]);
 
   return (
     <form key={`${bookId || "new"}-${book?.title || "loading"}`} onSubmit={submit} className="space-y-6">
@@ -296,6 +376,37 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
             </div>
             <Field label="Tags (comma separated)" name="tags" defaultValue={book?.tags.join(", ")} />
             <FileField label="Book cover (used for all formats)" name="bookCover" accept="image/*" required={!bookId} />
+
+            <div className="border-t border-slate-100 pt-5 space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Calendar className="size-5 text-[#a88922]" />
+                Publication Metadata
+              </h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field
+                  label="Publication Date"
+                  name="publicationDate"
+                  type="date"
+                  defaultValue={parsedPublicationDetails?.publicationDate || ""}
+                  required
+                />
+                <Field
+                  label="Total Page Count"
+                  name="totalPageCount"
+                  type="number"
+                  min="1"
+                  defaultValue={parsedPublicationDetails?.totalPageCount || ""}
+                  required
+                />
+                <Field
+                  label="Book size / trim dimensions"
+                  name="bookDimensions"
+                  placeholder="e.g. 6 x 9 inches"
+                  defaultValue={parsedPublicationDetails?.bookDimensions || ""}
+                  required
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -339,12 +450,46 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
                         {fileValidationPending[format] ? "Validating..." : "Validate print files"}
                       </button>
                       {fileValidations[format]?.valid && (
-                        <p className="mt-3 text-sm text-emerald-700">
-                          Files validated. Cover size: {fileValidations[format].coverDimensions?.width} x {fileValidations[format].coverDimensions?.height} {fileValidations[format].coverDimensions?.unit}.
-                        </p>
+                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                          <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1.5">
+                            ✓ Files successfully validated by print partner.
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Cover Size: {fileValidations[format].coverDimensions?.width} x {fileValidations[format].coverDimensions?.height} {fileValidations[format].coverDimensions?.unit}
+                          </p>
+                          <div className="flex gap-4 mt-2">
+                            {fileValidations[format].files?.interiorPdf?.url && (
+                              <a
+                                href={fileValidations[format].files.interiorPdf.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#cfaf45] hover:underline"
+                              >
+                                <Eye className="size-3.5" />
+                                Preview Interior PDF
+                              </a>
+                            )}
+                            {fileValidations[format].files?.coverPdf?.url && (
+                              <a
+                                href={fileValidations[format].files.coverPdf.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#cfaf45] hover:underline"
+                              >
+                                <Eye className="size-3.5" />
+                                Preview Cover PDF
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       )}
                       {fileValidations[format] && !fileValidations[format].valid && (
-                        <p className="mt-3 text-sm text-red-700">{fileValidations[format].message || "Files are not validated yet."}</p>
+                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                          <p className="text-sm text-red-700 font-semibold">
+                            ✗ File validation failed
+                          </p>
+                          <p className="text-xs text-red-600">{fileValidations[format].message || "Files are not validated yet."}</p>
+                        </div>
                       )}
                     </div>
                   </>
@@ -365,7 +510,7 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
           </CardTitle>
         </CardHeader>
         <CardContent className="p-5">
-          <RoyaltyCalculator isFoundingAuthor={isFoundingAuthor} />
+          <RoyaltyCalculator isFoundingAuthor={isFoundingAuthor} distributionPath={distributionPath} />
         </CardContent>
       </Card>
       <Card className="rounded-none bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
@@ -378,24 +523,69 @@ export function AuthorUploadContentPage({ accessToken, isFoundingAuthor }: { acc
           <div className="grid gap-5 lg:grid-cols-2">
             <DistributionPathCard
               title="WE Exclusive"
-              percentage="65%"
+              percentage={isFoundingAuthor ? "85%" : "70% - 75%"}
               description="Maximum earnings. Your book is sold exclusively through the Wonder Emporium marketplace."
+              selected={distributionPath === "exclusive"}
+              onClick={() => setDistributionPath("exclusive")}
             />
             <DistributionPathCard
               title="Wide Distribution"
-              percentage="45%"
+              percentage={isFoundingAuthor ? "85%" : "50% - 55%"}
               description="Expanded reach. Distribute to Amazon, Barnes & Noble, and independent bookstores globally."
+              selected={distributionPath === "wide"}
+              onClick={() => setDistributionPath("wide")}
             />
           </div>
         </CardContent>
       </Card>
-      <button
-        disabled={pending || (book != null && !["DRAFT", "REJECTED"].includes(book.status))}
-        className="inline-flex h-12 items-center gap-2 rounded-md bg-[#cfaf45] px-6 font-semibold text-white hover:bg-[#b79731] disabled:opacity-50"
-      >
-        <Save className="size-4" />
-        {pending ? "Saving..." : bookId ? "Save changes" : "Create draft"}
-      </button>
+
+      <Card className="rounded-none bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="termsAgree"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              className="mt-1 size-4 cursor-pointer accent-[#cfaf45]"
+            />
+            <label htmlFor="termsAgree" className="text-sm text-slate-600 cursor-pointer select-none">
+              I agree to the{" "}
+              <a
+                href="/author-terms"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#cfaf45] hover:underline inline-flex items-center gap-0.5"
+              >
+                W.E. Books Terms and Conditions
+                <ExternalLink className="size-3" />
+              </a>{" "}
+              and authorize W.E. Books to publish and distribute this book.
+            </label>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col sm:flex-row gap-4 pt-4">
+        <button
+          type="submit"
+          onClick={() => setSubmitType("save")}
+          disabled={pending || (book != null && !["DRAFT", "REJECTED"].includes(book.status))}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-6 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Save className="size-4" />
+          {pending && submitType === "save" ? "Saving..." : bookId ? "Save changes" : "Save as draft"}
+        </button>
+        <button
+          type="submit"
+          onClick={() => setSubmitType("publish")}
+          disabled={pending || (book != null && !["DRAFT", "REJECTED"].includes(book.status))}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#cfaf45] px-6 font-semibold text-white hover:bg-[#b79731] disabled:opacity-50"
+        >
+          <Package className="size-4" />
+          {pending && submitType === "publish" ? "Publishing..." : "Publish Book"}
+        </button>
+      </div>
     </form>
   );
 }
@@ -686,35 +876,121 @@ function unwrapApiData<T>(payload: unknown): T {
   return (first && typeof first === "object" && "data" in first ? (first as { data?: unknown }).data : first) as T;
 }
 
-function RoyaltyCalculator({ isFoundingAuthor = false }: { isFoundingAuthor?: boolean }) {
+function RoyaltyCalculator({
+  isFoundingAuthor = false,
+  distributionPath = "exclusive",
+}: {
+  isFoundingAuthor?: boolean;
+  distributionPath?: "exclusive" | "wide";
+}) {
   const [listingPrice, setListingPrice] = useState<string>("");
+  const [selectedFormat, setSelectedFormat] = useState<"print" | "ebook" | "audiobook">("ebook");
+
   const price = parseFloat(listingPrice) || 0;
-  const authorPercentage = isFoundingAuthor ? 0.65 : 0.7;
-  const adminPercentage = isFoundingAuthor ? 0.35 : 0.3;
+
+  let authorPercentage = 0.50;
+  if (isFoundingAuthor) {
+    authorPercentage = 0.85;
+  } else if (distributionPath === "exclusive") {
+    authorPercentage = selectedFormat === "print" ? 0.75 : 0.70;
+  } else {
+    authorPercentage = selectedFormat === "print" ? 0.55 : 0.50;
+  }
+
+  const adminPercentage = 1 - authorPercentage;
   const authorEarnings = price * authorPercentage;
   const adminEarnings = price * adminPercentage;
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="listing-price" className="block text-sm font-medium text-slate-700">
-            Book Listing Price (USD)
-          </label>
-          <Input id="listing-price" type="number" min="0" step="0.01" placeholder="0.00" value={listingPrice} onChange={(e) => setListingPrice(e.target.value)} className="mt-1 bg-slate-50 focus-visible:ring-[#cb9f10]" />
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="listing-price" className="block text-sm font-medium text-slate-700">
+              Book Listing Price (USD)
+            </label>
+            <Input
+              id="listing-price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={listingPrice}
+              onChange={(e) => setListingPrice(e.target.value)}
+              className="mt-1 bg-slate-50 focus-visible:ring-[#cb9f10]"
+            />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-slate-700 mb-1.5">Book Format</span>
+            <div className="flex gap-2">
+              {(["ebook", "audiobook", "print"] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setSelectedFormat(fmt)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md border capitalize transition-all ${
+                    selectedFormat === fmt
+                      ? "border-[#cfaf45] bg-[#fffcf5] text-[#b79731]"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {fmt}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-slate-500">
-          Current author status: <strong className="text-slate-700">{isFoundingAuthor ? "Founding Author (65% Cut)" : "Standard Author (70% Cut)"}</strong>
-        </p>
+        <div className="rounded-lg bg-lime-50 p-5 border border-[#e8e0cc] flex flex-col justify-center">
+          <div className="flex justify-between items-center border-b border-[#d5d2cb] pb-2 mb-2">
+            <span className="text-sm font-medium text-slate-600">
+              Your Cut ({Math.round(authorPercentage * 100)}%)
+            </span>
+            <span className="text-lg font-bold text-teal-950">${authorEarnings.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-600">
+              Platform Fee ({Math.round(adminPercentage * 100)}%)
+            </span>
+            <span className="text-lg font-bold text-slate-700">${adminEarnings.toFixed(2)}</span>
+          </div>
+        </div>
       </div>
-      <div className="rounded-lg bg-lime-50 p-4 border border-[#e8e0cc] flex flex-col justify-center">
-        <div className="flex justify-between items-center border-b border-[#d5d2cb] pb-2 mb-2">
-          <span className="text-sm font-medium text-slate-600">Your Earnings</span>
-          <span className="text-lg font-bold text-teal-950">${authorEarnings.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium text-slate-600">Platform Fee</span>
-          <span className="text-lg font-bold text-slate-700">${adminEarnings.toFixed(2)}</span>
+
+      <div className="border-t border-slate-100 pt-4">
+        <span className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-sans">
+          Official Royalty Schedule
+        </span>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left text-xs min-w-[400px]">
+            <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 font-sans">
+              <tr>
+                <th className="p-3">Author Tier</th>
+                <th className="p-3 text-center">Print (Paperback & Hardback)</th>
+                <th className="p-3 text-center">Ebook</th>
+                <th className="p-3 text-center">Audiobook</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white text-slate-600 font-sans">
+              <tr className={`${isFoundingAuthor ? "bg-amber-50/70 font-semibold text-amber-900" : ""}`}>
+                <td className="p-3 font-medium text-slate-900">Founder Authors</td>
+                <td className={`p-3 text-center ${isFoundingAuthor && selectedFormat === "print" ? "bg-amber-100/50" : ""}`}>85%</td>
+                <td className={`p-3 text-center ${isFoundingAuthor && selectedFormat === "ebook" ? "bg-amber-100/50" : ""}`}>85%</td>
+                <td className={`p-3 text-center ${isFoundingAuthor && selectedFormat === "audiobook" ? "bg-amber-100/50" : ""}`}>85%</td>
+              </tr>
+              <tr className={`${(!isFoundingAuthor && distributionPath === "exclusive") ? "bg-amber-50/70 font-semibold text-amber-900" : ""}`}>
+                <td className="p-3 font-medium text-slate-900">Exclusive Authors</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "exclusive" && selectedFormat === "print" ? "bg-amber-100/50" : ""}`}>75%</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "exclusive" && selectedFormat === "ebook" ? "bg-amber-100/50" : ""}`}>70%</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "exclusive" && selectedFormat === "audiobook" ? "bg-amber-100/50" : ""}`}>70%</td>
+              </tr>
+              <tr className={`${(!isFoundingAuthor && distributionPath === "wide") ? "bg-amber-50/70 font-semibold text-amber-900" : ""}`}>
+                <td className="p-3 font-medium text-slate-900">Wide Authors</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "wide" && selectedFormat === "print" ? "bg-amber-100/50" : ""}`}>55%</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "wide" && selectedFormat === "ebook" ? "bg-amber-100/50" : ""}`}>50%</td>
+                <td className={`p-3 text-center ${!isFoundingAuthor && distributionPath === "wide" && selectedFormat === "audiobook" ? "bg-amber-100/50" : ""}`}>50%</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -725,19 +1001,30 @@ function DistributionPathCard({
   title,
   percentage,
   description,
+  selected,
+  onClick,
 }: {
   title: string;
   percentage: string;
   description: string;
+  selected?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className="self-stretch bg-white p-5 inline-flex flex-col justify-start items-start gap-2 outline outline-2 outline-offset-[-2px] outline-stone-300">
+    <div
+      onClick={onClick}
+      className={`cursor-pointer self-stretch bg-white p-5 inline-flex flex-col justify-start items-start gap-2 outline outline-2 outline-offset-[-2px] transition-all duration-200 ${
+        selected ? "outline-[#cfaf45] bg-[#fffcf5]" : "outline-stone-300 hover:outline-[#cfaf45]/50"
+      }`}
+    >
       <div className="inline-flex w-full items-start justify-between">
         <div className="text-2xl font-semibold leading-7 text-neutral-800">
           {title}
         </div>
-        <div className="flex size-5 items-center justify-center rounded-full outline outline-2 outline-offset-[-2px] outline-stone-200">
-          <div className="size-2.5 rounded-full bg-orange-400 opacity-0" />
+        <div className={`flex size-5 items-center justify-center rounded-full outline outline-2 outline-offset-[-2px] ${
+          selected ? "outline-[#cfaf45]" : "outline-stone-200"
+        }`}>
+          <div className={`size-2.5 rounded-full bg-[#cfaf45] transition-all duration-200 ${selected ? "opacity-100" : "opacity-0"}`} />
         </div>
       </div>
       <div className="w-full">
