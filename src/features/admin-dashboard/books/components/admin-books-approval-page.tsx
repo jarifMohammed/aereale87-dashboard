@@ -275,6 +275,31 @@ function BookDetailDialog({
 
   const tagList = book.tags?.length ? book.tags : [];
 
+  const parsedPublicationDetails = useMemo(() => {
+    if (!book.publicationDetails) return null;
+    try {
+      return JSON.parse(book.publicationDetails) as {
+        publicationDate?: string;
+        totalPageCount?: number;
+        bookDimensions?: string;
+        distributionPath?: "exclusive" | "wide";
+      };
+    } catch {
+      return null;
+    }
+  }, [book.publicationDetails]);
+
+  const parsedPrintEdition = useMemo(() => {
+    if (!book.printEdition) return null;
+    try {
+      return typeof book.printEdition === "string"
+        ? JSON.parse(book.printEdition)
+        : book.printEdition;
+    } catch {
+      return null;
+    }
+  }, [book.printEdition]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
@@ -351,6 +376,64 @@ function BookDetailDialog({
               ))}
             </div>
           </div>
+
+          {parsedPublicationDetails && (
+            <div className="rounded-lg border border-slate-200 p-4">
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">Publication & Distribution Details</h4>
+              <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Publication Date</span>
+                  <span className="font-medium text-slate-900">{parsedPublicationDetails.publicationDate || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Total Page Count</span>
+                  <span className="font-medium text-slate-900">{parsedPublicationDetails.totalPageCount || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2 sm:border-0 sm:pb-0">
+                  <span className="text-slate-500">Book Size / Dimensions</span>
+                  <span className="font-medium text-slate-900">{parsedPublicationDetails.bookDimensions || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Distribution Path</span>
+                  <span className="font-semibold text-[#a88922]">
+                    {parsedPublicationDetails.distributionPath === "exclusive" ? "WE Exclusive" : "Wide Distribution"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {parsedPrintEdition && parsedPrintEdition.enabled && (
+            <div className="rounded-lg border border-slate-200 p-4">
+              <h4 className="text-sm font-semibold text-slate-700 mb-3">Print Specifications</h4>
+              <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Book Type</span>
+                  <span className="font-medium text-slate-900">{parsedPrintEdition.bookType || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Paper Type</span>
+                  <span className="font-medium text-slate-900">{parsedPrintEdition.paperType || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Interior Color</span>
+                  <span className="font-medium text-slate-900">{parsedPrintEdition.interiorColor || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Binding Type</span>
+                  <span className="font-medium text-slate-900">{parsedPrintEdition.bindingType || "—"}</span>
+                </div>
+                <div className="flex justify-between sm:border-b sm:border-slate-100 sm:pb-2">
+                  <span className="text-slate-500">Cover Finish</span>
+                  <span className="font-medium text-slate-900">{parsedPrintEdition.coverFinish || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">SKU / Package ID</span>
+                  <span className="font-mono text-xs text-slate-600">{parsedPrintEdition.podPackageId || "—"}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-lg border border-slate-200 p-4">
             <h4 className="text-sm font-semibold text-slate-700 mb-3">Submitted Files</h4>
